@@ -1,7 +1,7 @@
 ##########################################################################
 ##########################################################################
 # Reliability of web-based affective auditory stimuli presentation
-# Seow & Hauser, 2021
+# Seow & Hauser, 2020
 
 #### clear all ####
 rm(list = ls())
@@ -22,14 +22,14 @@ rho<- utf8_print("\u03C1")
 logposition <- function(value, min, max) {
   minp <- 0
   maxp <- 100
-
-
+  
+  
   minv <- log(min)
   maxv <- log(max)
-
-
+  
+  
   scale <- (maxv - minv) / (maxp - minp)
-
+  
   return((log(value) - minv) / scale + minp)
 }
 
@@ -54,7 +54,7 @@ arouFunc <- function(xx) {
 indivRatings <- function(sound, scale) {
   sound.1 <- indivData[indivData$soundFocus == sound, ]
   sound.1Cut <- t(sound.1[, c(scale)])
-
+  
   return(sound.1Cut)
 }
 
@@ -421,27 +421,27 @@ allArou <- data.frame()
 for (i in 1:length(idList)) {
   indivData <- taskData[taskData$userID == idList[i], ]
   indivData <- indivData[with(indivData, order(indivData$userID, indivData$volumePer, indivData$qnNum)), ] # make sure it is ordered
-
+  
   valScale <- NULL
   arouScale <- NULL
   colAll <- NULL
-
+  
   # for every sound,
   for (s in 1:length(unique(taskData$soundFocus))) {
-
+    
     # permute ratings such that vector includes first 2 is 0.5 volume ratings, then 1.0 volume ratings for one particular sound
     sound.title <- unique(taskData$soundFocus)[s]
-
+    
     sound.val <- indivRatings(sound.title, "valRating")
     sound.arou <- indivRatings(sound.title, "arouRating")
-
+    
     sound.title.1 <- paste(sound.title, "0.5-1", sep = " ")
     sound.title.2 <- paste(sound.title, "0.5-2", sep = " ")
     sound.title.3 <- paste(sound.title, "1.0-1", sep = " ")
     sound.title.4 <- paste(sound.title, "1.0-2", sep = " ")
-
+    
     colID <- c(sound.title.1, sound.title.2, sound.title.3, sound.title.4)
-
+    
     valScale <- cbind(valScale, sound.val)
     arouScale <- cbind(arouScale, sound.arou)
     colAll <- cbind(colAll, colID)
@@ -453,7 +453,7 @@ for (i in 1:length(idList)) {
   colnames(arouScale) <- c(colAll)
   valScale$userID <- idList[i]
   arouScale$userID <- idList[i]
-
+  
   allVal <- rbind(allVal, valScale)
   allArou <- rbind(allArou, arouScale)
 }
@@ -478,7 +478,7 @@ cv(audioRateFinal$meanArouAll, na.rm = FALSE)
 
 allsound.frame <- data.frame()
 for (t in seq(1, length(colAll), by = 4)) {
-
+  
   # correlate the 0.5 vol
   sound <- substr(colAll[t],1,nchar(colAll[t])-6)
   sound.1.cor<-  cor.test(allValCo[[colAll[t]]], allValCo[[colAll[t + 1]]],method = c("spearman"), exact=FALSE)
@@ -496,12 +496,12 @@ for (t in seq(1, length(colAll), by = 4)) {
 # plot
 xlabel<- paste('Correlation (',rho,') between repeated\nratings at 50% volume', sep="")
 ylabel<- paste('Correlation (',rho,') between repeated\nratings at 100% volume', sep="")               
-                 
+
 SFig2<- ggplot(allsound.frame, aes(x = `0.5_Rel`, y = `1.0_Rel`)) +
   geom_point(color = "black", size = 3) + 
   labs(
     title = "",
-        x= xlabel,
+    x= xlabel,
     y = ylabel
   ) +
   theme_classic()+
@@ -548,6 +548,7 @@ audioUsed<- c("Cicada\n(IADS-E; Yang et al., 2018)","Piano Melody\n(IADS-E; Yang
 audioLeft <- audioComp[audioComp$soundFocus %in% audioUsed, ]
 audioLeft<- audioLeft[,c("soundFocus","meanValAll","meanArouAll")]
 colnames(audioLeft)<-c("Sound","Cur_Val","Cur_Arou")
+
 
 compData <- Reduce(
   function(dtf1, dtf2) merge(dtf1, dtf2, by = "Sound", all.x = TRUE),
@@ -604,7 +605,6 @@ Fig3b<- ggplot(compData, aes(x = IADSE_Val, y = Cur_Val)) +
   ) + 
   xlim(0, 10) +   ylim(0,100)+
   geom_text_repel(aes(label = Sound), point.padding = 0.5)
-
 
 
 ##########################################################################
@@ -681,6 +681,70 @@ Fig4b <- ggplot(audioRateFinal, aes(colour = as.factor(volumePer*100), y = ArouO
     legend.title=element_text(size=12),
     legend.text=element_text(size=12)
   )+ xlim (-5,105)
+
+
+# testing the effect of the rating difference between low vs high volume per sound... 
+
+valVol=c()
+arouVol= c()
+soundList = unique(audioRateUser$soundFocus)
+for (i in 1:length(soundList)){
+  
+  sound = soundList[i]
+  test1 = audioRateUser[audioRateUser$soundFocus == sound & audioRateUser$volumePer == 0.5, ]
+  test2 = audioRateUser[audioRateUser$soundFocus == sound & audioRateUser$volumePer == 1.0, ]
+  
+  valTest =t.test(test1$meanVal, test2$meanVal, paired = TRUE )
+  
+  valVolTemp = c( sound, valTest$statistic,  valTest$conf.int[1],valTest$conf.int[2], valTest$p.value) 
+  valVol = rbind(valVol,valVolTemp)
+  
+  arouTest =t.test(test1$meanArou, test2$meanArou, paired = TRUE )
+  
+  arouVolTemp = c( sound, arouTest$statistic,  arouTest$conf.int[1],arouTest$conf.int[2], arouTest$p.value) 
+  arouVol = rbind(arouVol,arouVolTemp)
+  
+}
+
+colnames(valVol)<- c("sound" , "t-value", "conf.int1", "conf.int2","p-value" ) 
+colnames(arouVol)<- c("sound" , "t-value", "conf.int1", "conf.int2","p-value" ) 
+
+valVol<-data.frame(valVol)
+arouVol<-data.frame(arouVol)
+
+valVol[,2:5] <- lapply(valVol[,2:5], as.numeric)
+arouVol[,2:5] <- lapply(arouVol[,2:5], as.numeric)
+
+valVol <- valVol[order(valVol$t.value),]
+arouVol <- arouVol[order(arouVol$t.value),]
+
+
+test1 = audioRateUser[audioRateUser$soundFocus == "Scream\n(Morriss et al., 2015; 2016; 2020)" & audioRateUser$volumePer == 1.0, ]
+test2 = audioRateUser[audioRateUser$soundFocus == "Scream\n(IADS-E; Yang et al., 2018)" & audioRateUser$volumePer == 1.0, ]
+
+test1 = audioRateUser[audioRateUser$soundFocus == "Scream\n(Morriss et al., 2015; 2016; 2020)" & audioRateUser$volumePer == 0.5, ]
+test2 = audioRateUser[audioRateUser$soundFocus == "Scream\n(IADS-E; Yang et al., 2018)" & audioRateUser$volumePer == 0.5, ]
+
+
+test1 = audioRateUser[audioRateUser$soundFocus == "Cicada\n(IADS-E; Yang et al., 2018)" & audioRateUser$volumePer == 1.0, ]
+test2 = audioRateUser[audioRateUser$soundFocus == "Piano Melody\n(IADS-E; Yang et al., 2018)" & audioRateUser$volumePer == 1.0, ]
+
+test1 = audioRateUser[audioRateUser$soundFocus == "Cicada\n(IADS-E; Yang et al., 2018)" & audioRateUser$volumePer == 0.5, ]
+test2 = audioRateUser[audioRateUser$soundFocus == "Piano Melody\n(IADS-E; Yang et al., 2018)" & audioRateUser$volumePer == 0.5, ]
+
+
+test1 = audioRateUser[audioRateUser$soundFocus == "Frequency 1\n(M = 8,033 Hz)" & audioRateUser$volumePer == 0.5, ]
+test2 = audioRateUser[audioRateUser$soundFocus == "Frequency 2\n(M = 4,004 Hz)" & audioRateUser$volumePer == 0.5, ]
+
+test1 = audioRateUser[audioRateUser$soundFocus == "Frequency 1\n(M = 8,033 Hz)" & audioRateUser$volumePer == 1.0, ]
+test2 = audioRateUser[audioRateUser$soundFocus == "Frequency 2\n(M = 4,004 Hz)" & audioRateUser$volumePer == 1.0, ]
+
+test1 = audioRateUser[audioRateUser$soundFocus == "5,000 Hz" & audioRateUser$volumePer == 0.5, ]
+test2 = audioRateUser[audioRateUser$soundFocus == "800 Hz" & audioRateUser$volumePer == 0.5, ]
+
+t.test(test1$meanVal, test2$meanVal, paired = TRUE )
+
+t.test(test1$meanArou, test2$meanArou, paired = TRUE )
 
 
 
@@ -920,7 +984,7 @@ summary(arouReg)
 #### Fig 5a. Psychiatric questionnaires x valence/arousal ratings
 
 audioRateMean <- ddply(audioRateUser, c("userID", "volumePer"), summarise,
-           
+                       
                        meanValAll = mean(meanVal), sdValAll = sd(meanVal),
                        meanArouAll = mean(meanArou), sdArouAll = sd(meanArou)
 )
@@ -1518,7 +1582,7 @@ if (print == 1) {
   ggsave("Fig5b5.png", plot = Fig5b5,width = 10 ,height = 10, units = "cm", dpi =300)
   ggsave("Fig5b6.png", plot = Fig5b6,width = 10 ,height = 10, units = "cm", dpi =300)
   
-
+  
   # Supplemetary Figure 1 - frequency x age
   ggsave("SFig1.png", plot = SFig1,width = 10 ,height = 10, units = "cm", dpi =300)
   
@@ -1548,9 +1612,3 @@ if (print == 1) {
   
   
 }
-
-
-
-
-
-

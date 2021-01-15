@@ -1,7 +1,7 @@
 ##########################################################################
 ##########################################################################
 # Reliability of web-based affective auditory stimuli presentation
-# Seow & Hauser, 2020
+# Seow & Hauser, 2021
 
 #### clear all ####
 rm(list = ls())
@@ -59,13 +59,7 @@ indivRatings <- function(sound, scale) {
 }
 
 #### set folder ####
-cpu <- 1
-
-if (cpu == 1) {
-  setwd("C:/Users/dream/OneDrive - University College London/Lab/Projects/audioPilot/data/")
-} else if (cpu == 2) {
-  setwd("C:/Users/tseow/OneDrive - University College London/Lab/Projects/audioPilot/data/")
-}
+setwd("C:/Users/dream/OneDrive - University College London/Lab/Projects/audioPilot/data/")
 
 
 # if save figures automatically
@@ -149,14 +143,15 @@ freqQuest <- Reduce(
 cor.test(freqQuest$age,freqQuest$freqChosen)
 
 SFig1 <- ggplot(freqQuest, aes(x = age, y = freqChosen)) +
-  geom_point(color = "black", size = 3, alpha=0.5) +
+  # geom_point(color = "black", size = 3, alpha=0.5) +
+  geom_jitter(position = position_jitter(width = 0.1, height = 0.1), size = 3, color = "black", shape = 21, stroke = 1.2) +
   geom_smooth(
     method = lm, linetype = "dashed",
     color = "black", fill = "grey", size = 1.5
   ) +
   labs(
     title = " ",
-    y = "Chosen Frequency (Hz)",
+    y = "Adjusted frequency threshold (Hz)",
     x = "Age"
   ) +
   theme_classic()+
@@ -572,7 +567,7 @@ Fig3a<- ggplot(compData, aes(x = IADSE_Arou, y = Cur_Arou)) +
   labs(
     title = " ",
     x= "Arousal Rating\n(Prior studies)",
-    y = "Arousal Rating\n(Seow & Hauser, 2020)"
+    y = "Arousal Rating\n(Seow & Hauser, 2021)"
   ) +
   theme_classic()+
   theme(
@@ -594,7 +589,7 @@ Fig3b<- ggplot(compData, aes(x = IADSE_Val, y = Cur_Val)) +
   labs(
     title = " ",
     x= "Valance Rating\n(Prior studies)",
-    y = "Valance Rating\n(Seow & Hauser, 2020)"
+    y = "Valance Rating\n(Seow & Hauser, 2021)"
   ) +
   theme_classic()+
   theme(
@@ -605,6 +600,33 @@ Fig3b<- ggplot(compData, aes(x = IADSE_Val, y = Cur_Val)) +
   ) + 
   xlim(0, 10) +   ylim(0,100)+
   geom_text_repel(aes(label = Sound), point.padding = 0.5)
+
+
+## What about variance
+# audioRateVar <- ddply(audioRateUser, c("soundFocus", "volumePer"), summarise,
+#                       meanValAll = mean(meanVal/10), sdValAll = sd(meanVal/10) ,
+#                       meanArouAll = mean(meanArou/10), sdArouAll = sd(meanArou/10) 
+# )
+
+# soundsUsed<- c("0276","0335", "0921","1360" )
+# IADSEVar <- IADSE[IADSE$Sound.ID %in% soundsUsed, ]
+# IADSEVar<- IADSEVar[,c("Description","AroMN", "AroSD","ValMN","ValSD")]
+# IADSEVar$Sound<-c("Scream\n(IADS-E; Yang et al., 2018)","Cicada\n(IADS-E; Yang et al., 2018)","Sea Wave\n(IADS-E; Yang et al., 2018)","Piano Melody\n(IADS-E; Yang et al., 2018)")
+# IADSEVar$AroCV<-IADSEVar$AroSD/IADSEVar$AroMN*100
+# IADSEVar$ValCV<-IADSEVar$ValSD/IADSEVar$ValMN*100
+# 
+# audioComp<-audioRateVar[audioRateFinal$volumePer==1.0,]
+# audioUsed<- c("Cicada\n(IADS-E; Yang et al., 2018)","Piano Melody\n(IADS-E; Yang et al., 2018)", "Scream\n(IADS-E; Yang et al., 2018)","Sea Wave\n(IADS-E; Yang et al., 2018)","Scream\n(Morriss et al., 2015; 2016; 2020)")
+# audioVar <- audioComp[audioComp$soundFocus %in% audioUsed, ]
+# audioVar<- audioVar[,c("soundFocus","meanValAll","sdValAll","meanArouAll","sdArouAll")]
+# audioVar$AroCV<-audioVar$sdArouAll/audioVar$meanArouAll*100
+# audioVar$ValCV<-audioVar$sdValAll/audioVar$meanValAll*100
+# 
+# compDataVar <- Reduce(
+#   function(dtf1, dtf2) merge(dtf1, dtf2, by = "Sound", all.x = TRUE),
+#   list(IADSEVar, audioVar)
+# )
+# 
 
 
 ##########################################################################
@@ -781,8 +803,8 @@ SFig3b<-ggplot(audioRateFinal, aes(colour = as.factor(volumePer*100), y = meanVa
   ) +
   labs(
     title = "",
-    y = "Valence (M)",
-    x = "Arousal (M)",
+    y = "Valence Rating (Mean)",
+    x = "Arousal Rating (Mean)",
     colour = "Volume (%)"
   ) +
   theme_classic()+
@@ -835,7 +857,7 @@ regData <- Reduce(
   list(audioRateUser, questData)
 )
 
-#### Suppl Fig 5. Questionnare score histograms 
+#### Suppl Fig 4. Questionnare score histograms 
 
 
 SFig4a<-ggplot(questData, aes(x=STAIY1_total)) + 
@@ -892,7 +914,7 @@ SFig4c<-ggplot(questData, aes(x=OCIR_total)) +
   )
 
 
-#### Suppl Fig 6. Correlations BETWEEN questionnaire scores 
+#### Suppl Fig 5. Correlations BETWEEN questionnaire scores 
 
 cor.test(questData$STAIY1_total, questData$STAIY2_total)
 cor.test(questData$OCIR_total, questData$STAIY1_total)
@@ -1452,8 +1474,9 @@ SFig6a <- ggplot(val.0.5.frame.temp, aes(colour = as.factor(variable), y = sound
     axis.title.y = element_text(size = 14, face = "bold"),
     legend.title=element_text(size=12),
     legend.text=element_text(size=12)
-  )+ xlim (-0.4,0.3)
-
+  )+ 
+  #xlim (-0.4,0.3)
+  xlim (-0.4,0.41)
 
 # Arousal 50%
 arou.0.5.frame.temp<- arou.0.5.frame[,c("sound","STAIY1_cor","STAIY2_cor","OCIR_cor")]
@@ -1477,7 +1500,9 @@ SFig6b <- ggplot(arou.0.5.frame.temp, aes(colour = as.factor(variable), y = soun
     axis.title.y = element_text(size = 14, face = "bold"),
     legend.title=element_text(size=12),
     legend.text=element_text(size=12)
-  )+ xlim (-0.2,0.41)
+  )+ 
+  # xlim (-0.2,0.41)
+  xlim (-0.4,0.41)
 
 # valence 100%
 val.1.0.frame.temp<- val.1.0.frame[,c("sound","STAIY1_cor","STAIY2_cor","OCIR_cor")]
@@ -1501,8 +1526,9 @@ SFig6c <- ggplot(val.1.0.frame.temp, aes(colour = as.factor(variable), y = sound
     axis.title.y = element_text(size = 14, face = "bold"),
     legend.title=element_text(size=12),
     legend.text=element_text(size=12)
-  )+ xlim (-0.25,0.2)
-
+  )+ 
+  #  xlim (-0.25,0.2)
+  xlim (-0.3,0.3)
 
 
 # Arousal 100%
@@ -1527,7 +1553,9 @@ SFig6d <- ggplot(arou.1.0.frame.temp, aes(colour = as.factor(variable), y = soun
     axis.title.y = element_text(size = 14, face = "bold"),
     legend.title=element_text(size=12),
     legend.text=element_text(size=12)
-  )+ xlim (-0.3,0.3)
+  )+ 
+  xlim (-0.3,0.3)
+
 
 
 

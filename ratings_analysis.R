@@ -59,7 +59,7 @@ indivRatings <- function(sound, scale) {
 }
 
 #### set folder ####
-setwd("C:/Users/dream/OneDrive - University College London/Lab/Projects/audioPilot/data/")
+setwd("C:/Users/dream/Documents/GitHub/audio-pilot-analysis/data")
 
 
 # if save figures automatically
@@ -1042,7 +1042,7 @@ Fig5a1<-ggplot(regData2, aes(x = meanArouAll, y = STAIY1_total, colour = as.fact
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  )
+  )+ xlim(35,95)+ ylim (22,75)
 
 Fig5a2<-ggplot(regData2, aes(x = meanArouAll, y = STAIY2_total, colour = as.factor(volumePer*100))) +
   geom_point(shape = 21, size = 3, stroke = 1.2, alpha =0.8) +
@@ -1066,7 +1066,7 @@ Fig5a2<-ggplot(regData2, aes(x = meanArouAll, y = STAIY2_total, colour = as.fact
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  )
+  ) + xlim(35,95)+ ylim (25,85)
 
 
 Fig5a3<-ggplot(regData2, aes(x = meanArouAll, y = OCIR_total, colour = as.factor(volumePer*100))) +
@@ -1091,7 +1091,7 @@ Fig5a3<-ggplot(regData2, aes(x = meanArouAll, y = OCIR_total, colour = as.factor
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  )
+  ) + xlim(32,95)+ ylim (0,55)
 #+ xlim (1,100)+ ylim (0,72)
 
 
@@ -1117,7 +1117,7 @@ Fig5a4<-ggplot(regData2, aes(x = meanValAll, y = STAIY1_total, colour = as.facto
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  )
+  ) + xlim(12,62)+ ylim (22,75)
 
 
 
@@ -1143,7 +1143,7 @@ Fig5a5<-ggplot(regData2, aes(x = meanValAll, y = STAIY2_total, colour = as.facto
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  )
+  )  + xlim(12,62)+ ylim (25,85)
 
 
 Fig5a6<-ggplot(regData2, aes(x = meanValAll, y = OCIR_total, colour = as.factor(volumePer*100))) +
@@ -1168,7 +1168,8 @@ Fig5a6<-ggplot(regData2, aes(x = meanValAll, y = OCIR_total, colour = as.factor(
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  )
+  )+ xlim(12,62)+ ylim (0,55)
+
 #+ xlim (1,100)+ ylim (0,72)
 
 ##########################################################################
@@ -1249,7 +1250,7 @@ Fig5b1<-ggplot(regDataRelVal, aes(x = Cor, y = STAIY1_total, colour = as.factor(
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  )+ ylim (20,80)
+  )+ ylim (20,80)+ xlim(0.3,1.05)
 
 
 Fig5b2<-ggplot(regDataRelVal, aes(x = Cor, y = STAIY2_total, colour = as.factor(Volume*100))) +

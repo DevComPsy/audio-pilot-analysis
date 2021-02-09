@@ -1,6 +1,6 @@
 # Audio Pilot (data and analysis)
 
-This repository contains data and analysis code to reproduce all figures in Seow & Hauser (2021) Reliability of web-based affective auditory stimuli presentation.
+This repository contains data and analysis code to reproduce all figures in Seow & Hauser (2021) Reliability of web-based affective auditory stimulus presentation.
 
 The code for the online task can be found [here](https://github.com/seowxft/audio-pilot).
 

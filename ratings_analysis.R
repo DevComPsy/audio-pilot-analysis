@@ -42,14 +42,6 @@ arouFunc <- function(xx) {
 }
 
 
-#valFuncPear <- function(xx) {
-#  return(data.frame(COR = cor(xx$valRating.x, xx$valRating.y), method = c("pearson")))
-#}
-#arouFuncPear <- function(xx) {
-#  return(data.frame(COR = cor(xx$arouRating.x, xx$arouRating.y), method = c("pearson")))
-#}
-
-
 # sort into indiv ratings per sound for the internal consistency measure
 indivRatings <- function(sound, scale) {
   sound.1 <- indivData[indivData$soundFocus == sound, ]
@@ -66,12 +58,14 @@ setwd("C:/Users/dream/Documents/GitHub/audio-pilot-analysis/data")
 print = 1
 printFolder= "C:/Users/dream/OneDrive - University College London/Lab/Projects/audioPilot/figures/clean/"
 
+# prior study data file (This can also be found at Yang et al. 2018)
+prior_study="C:/Users/dream/Documents/GitHub/audio-pilot-analysis/data/IADSE_ratings.xlsx"
+
 
 #### import data ####
 freqData <- data.frame(read.csv("audio_pilot_freq.csv", header = T)) # load ratings data
 taskData <- data.frame(read.csv("audio_pilot_ratings.csv", header = T)) # load task performance data
 questData <- data.frame(read.csv("audio_pilot_quest.csv", header = T)) # load quest data
-
 
 ##########################################################################
 ##########################################################################
@@ -142,7 +136,7 @@ freqQuest <- Reduce(
 
 cor.test(freqQuest$age,freqQuest$freqChosen)
 
-SFig1 <- ggplot(freqQuest, aes(x = age, y = freqChosen)) +
+FigS1 <- ggplot(freqQuest, aes(x = age, y = freqChosen)) +
   # geom_point(color = "black", size = 3, alpha=0.5) +
   geom_jitter(position = position_jitter(width = 0.1, height = 0.1), size = 3, color = "black", shape = 21, stroke = 1.2) +
   geom_smooth(
@@ -166,7 +160,75 @@ SFig1 <- ggplot(freqQuest, aes(x = age, y = freqChosen)) +
 
 ##########################################################################
 ##########################################################################
-#### Fig 2. High reliablity of affective ratings
+##### Inter-rater reliability 
+##########################################################################
+##########################################################################
+
+idList <- unique(taskData$userID)
+
+allVal <- data.frame()
+allArou <- data.frame()
+
+# for every participant,
+for (i in 1:length(idList)) {
+  indivData <- taskData[taskData$userID == idList[i], ]
+  indivData <- indivData[with(indivData, order(indivData$userID, indivData$volumePer, indivData$qnNum)), ] # make sure it is ordered
+  
+  valScale <- NULL
+  arouScale <- NULL
+  colAll <- NULL
+  
+  # for every sound,
+  for (s in 1:length(unique(taskData$soundFocus))) {
+    
+    # permute ratings such that vector includes first 2 is 0.5 volume ratings, then 1.0 volume ratings for one particular sound
+    sound.title <- unique(taskData$soundFocus)[s]
+    
+    sound.val <- indivRatings(sound.title, "valRating")
+    sound.arou <- indivRatings(sound.title, "arouRating")
+    
+    sound.title.1 <- paste(sound.title, "0.5-1", sep = " ")
+    sound.title.2 <- paste(sound.title, "0.5-2", sep = " ")
+    sound.title.3 <- paste(sound.title, "1.0-1", sep = " ")
+    sound.title.4 <- paste(sound.title, "1.0-2", sep = " ")
+    
+    colID <- c(sound.title.1, sound.title.2, sound.title.3, sound.title.4)
+    
+    valScale <- cbind(valScale, sound.val)
+    arouScale <- cbind(arouScale, sound.arou)
+    colAll <- cbind(colAll, colID)
+  }
+  colAll <- as.vector(colAll, mode = "any")
+  valScale <- data.frame(valScale)
+  arouScale <- data.frame(arouScale)
+  colnames(valScale) <- c(colAll)
+  colnames(arouScale) <- c(colAll)
+  valScale$userID <- idList[i]
+  arouScale$userID <- idList[i]
+  
+  allVal <- rbind(allVal, valScale)
+  allArou <- rbind(allArou, arouScale)
+}
+
+
+library(irr)
+allVal.temp=as.data.frame(t(allVal))
+val.icc<- mutate_all(allVal.temp[1:60,], function(x) as.numeric(as.character(x)))
+psych::ICC(val.icc)
+
+allArou.temp=as.data.frame(t(allArou))
+arou.icc <- mutate_all(allArou.temp[1:60,], function(x) as.numeric(as.character(x)))
+psych::ICC(arou.icc)
+
+
+
+##########################################################################
+##########################################################################
+##### Intra-rater item reliability 
+##########################################################################
+##########################################################################
+
+#### Fig 2a. High reliablity of affective ratings
 
 
 audioRateUser <- ddply(taskData, c("userID", "soundFocus", "volumePer"), summarise,
@@ -196,8 +258,6 @@ audioRatePart2 <- ddply(taskData, c("userID","rateTime"), summarise,
 )
 
 
-# a) Test re-test ########################################################
-
 
 # compare between the first and second rating of the same sound
 firstRate <- taskData[taskData$rateTime == 1, ]
@@ -219,11 +279,6 @@ arouRelibleLow <- ddply(lowVolCompare, .(userID), arouFunc)
 valRelibleHigh <- ddply(highVolCompare, .(userID), valFunc)
 arouRelibleHigh <- ddply(highVolCompare, .(userID), arouFunc)
 
-# pearson's
-#valRelibleLow <- ddply(lowVolCompare, .(userID), valFuncPear)
-#arouRelibleLow <- ddply(lowVolCompare, .(userID), arouFuncPear)
-#valRelibleHigh <- ddply(highVolCompare, .(userID), valFuncPear)
-#arouRelibleHigh <- ddply(highVolCompare, .(userID), arouFuncPear)
 
 colnames(valRelibleLow) <- c("userID", "cor", "Volume")
 valRelibleLow$Volume <- 0.5
@@ -275,18 +330,145 @@ Fig2a <- ggplot(relAll, aes(x = as.factor(Rating), y = Cor, color = as.factor(Vo
   )
 
 
+##########################################################################
+##########################################################################
 #### Regressions of reliaility and volume
 
 comRelBind <- rbind(valRelibleLow, valRelibleHigh, arouRelibleLow, arouRelibleHigh)
 comRelBind$Volume.f <- factor(comRelBind$Volume)
 comRelBind$Rating.f <- factor(comRelBind$Rating)
+comRelBind$userID.f <-factor(comRelBind$userID)
 
 # main effect of volume and scaleType
-relReg <- lmer(cor ~ Volume.f + Rating.f + (1 + Volume.f + Rating.f | userID), comRelBind)
+relReg <- lmer(cor ~ Volume.f + Rating.f + (1 + Volume.f + Rating.f | userID.f), comRelBind)
+summary(relReg)
+
+# run ANOVA to check if there is any interaction effect
+library(rstatix)
+res.aov <- comRelBind %>% anova_test(cor ~ Volume.f * Rating.f + Error(userID/(Volume.f * Rating.f )))
+res.aov
+
+
+##########################################################################
+##########################################################################
+#### Sound test-retest reliability 
+##########################################################################
+##########################################################################
+
+# if divide by volume
+lowVolCompare <- compareConst[compareConst$volumePer == 0.5, ]
+highVolCompare <- compareConst[compareConst$volumePer == 1.0, ]
+
+soundList=unique(lowVolCompare$soundFocus)
+
+allval.soundrel <- data.frame()
+allarou.soundrel <- data.frame()
+
+for (j in 1:length(soundList)) {
+  temp1<-lowVolCompare[lowVolCompare$soundFocus==soundList[j],]
+  temp2<-highVolCompare[highVolCompare$soundFocus==soundList[j],]
+  
+  temp1.1<-cor.test(temp1$valRating.x,temp1$valRating.y, method= "spearman",exact=FALSE)
+  temp1.2<-cor.test(temp1$arouRating.x,temp1$arouRating.y, method= "spearman",exact=FALSE)
+  
+  temp2.1<-cor.test(temp2$valRating.x,temp2$valRating.y, method= "spearman",exact=FALSE)
+  temp2.2<-cor.test(temp2$arouRating.x,temp2$arouRating.y, method= "spearman",exact=FALSE)
+  
+  
+  val.soundrel<-data.frame(soundList[j],temp1.1$estimate,temp1.1$statistic,temp1.1$p.value,
+                           temp2.1$estimate,temp2.1$statistic,temp2.1$p.value)
+  colnames(val.soundrel)<-c("Sound", "0.5_Rel", "0.5_S", "0.5_p", "1.0_Rel", "1.0_S", "1.0_p")
+  
+  arou.soundrel<-data.frame(soundList[j],temp1.2$estimate,temp1.2$statistic,temp1.2$p.value,
+                            temp2.2$estimate,temp2.2$statistic,temp2.2$p.value)
+  colnames(arou.soundrel)<-c("Sound", "0.5_Rel", "0.5_S", "0.5_p", "1.0_Rel", "1.0_S", "1.0_p")
+  
+  allval.soundrel<- rbind(allval.soundrel,val.soundrel)
+  allarou.soundrel<- rbind(allarou.soundrel,arou.soundrel)
+  
+  
+}
+
+
+xlabel<- paste('Correlation (',rho,') between repeated\nratings at 50% volume', sep="")
+ylabel<- paste('Correlation (',rho,') between repeated\nratings at 100% volume', sep="")               
+
+FigS2a<- ggplot(allval.soundrel, aes(x = `0.5_Rel`, y = `1.0_Rel`)) +
+  geom_point(color = "black", size = 3) + 
+  labs(
+    title = "Valence Ratings",
+    x= xlabel,
+    y = ylabel
+  ) +
+  theme_classic()+
+  theme(
+    plot.title = element_text(size = 14, face = "bold.italic"),
+    axis.title.x = element_text(size = 14, face = "bold"),
+    axis.text = element_text(size = 14),
+    axis.title.y = element_text(size = 14, face = "bold")
+  ) + 
+  xlim(0.55, 0.8) +   ylim(0.55,0.8)+
+  geom_text_repel(aes(label = Sound), point.padding = 0.3)
+
+FigS2b<- ggplot(allarou.soundrel, aes(x = `0.5_Rel`, y = `1.0_Rel`)) +
+  geom_point(color = "black", size = 3) + 
+  labs(
+    title = "Arosual Ratings",
+    x= xlabel,
+    y = ylabel
+  ) +
+  theme_classic()+
+  theme(
+    plot.title = element_text(size = 14, face = "bold.italic"),
+    axis.title.x = element_text(size = 14, face = "bold"),
+    axis.text = element_text(size = 14),
+    axis.title.y = element_text(size = 14, face = "bold")
+  ) + 
+  xlim(0.40, 0.8) +   ylim(0.5,0.8)+
+  geom_text_repel(aes(label = Sound), point.padding = 0.3)
+
+
+mean(allval.soundrel$`0.5_Rel`)
+mean(allval.soundrel$`1.0_Rel`)
+sd(allval.soundrel$`0.5_Rel`)
+sd(allval.soundrel$`1.0_Rel`)
+
+mean(allarou.soundrel$`0.5_Rel`)
+mean(allarou.soundrel$`1.0_Rel`)
+sd(allarou.soundrel$`0.5_Rel`)
+sd(allarou.soundrel$`1.0_Rel`)
+
+
+# regression of volume + scale on cor
+temp1<-data.frame("sound"=allval.soundrel$Sound,"cor"=allval.soundrel$`0.5_Rel`)
+temp1$volumePer<-0.5
+temp1$scale<-"valence"
+
+temp2<-data.frame("sound"=allval.soundrel$Sound,"cor"=allval.soundrel$`1.0_Rel`)
+temp2$volumePer<-1.0
+temp2$scale<-"valence"
+
+temp3<-data.frame("sound"=allarou.soundrel$Sound,"cor"=allarou.soundrel$`0.5_Rel`)
+temp3$volumePer<-0.5
+temp3$scale<-"arousal"
+
+temp4<-data.frame("sound"=allarou.soundrel$Sound,"cor"=allarou.soundrel$`1.0_Rel`)
+temp4$volumePer<-1.0
+temp4$scale<-"arousal"
+
+alltemp<-rbind(temp1,temp2,temp3,temp4)
+alltemp$Volume.f<-factor(alltemp$volumePer)
+alltemp$Rating.f<-factor(alltemp$scale)
+
+relReg <- lmer(cor ~ Volume.f + Rating.f + (1 + Volume.f + Rating.f | sound), alltemp)
 summary(relReg)
 
 
-# b) Intraindividual Test re-test ########################################################
+##########################################################################
+##########################################################################
+#### Scale test-retest reliability 
+##########################################################################
+##########################################################################
 
 rateTime1<-audioRatePart[audioRatePart$rateTime==1,]
 rateTime2<-audioRatePart[audioRatePart$rateTime==2,]
@@ -352,7 +534,7 @@ Fig2b2<-ggplot(rateComp, aes(x = meanArou.x, y = meanArou.y, colour = as.factor(
 
 
 
-Fig2b3<-ggplot(rateComp, aes(x = sdVal.x, y = sdVal.y, colour = as.factor(volumePer*100))) +
+FigS3a<-ggplot(rateComp, aes(x = sdVal.x, y = sdVal.y, colour = as.factor(volumePer*100))) +
   geom_point(shape = 21, size = 3, stroke = 1.2, alpha =0.8) +
   scale_color_manual(values=c("#ffa600", "#003f5c"))+
   geom_smooth(
@@ -377,7 +559,7 @@ Fig2b3<-ggplot(rateComp, aes(x = sdVal.x, y = sdVal.y, colour = as.factor(volume
   )+ xlim(10,52) + ylim(10,52)
 
 
-Fig2b4<-ggplot(rateComp, aes(x = sdArou.x, y = sdArou.y, colour = as.factor(volumePer*100))) +
+FigS3b<-ggplot(rateComp, aes(x = sdArou.x, y = sdArou.y, colour = as.factor(volumePer*100))) +
   geom_point(shape = 21, size = 3, stroke = 1.2, alpha =0.8) +
   scale_color_manual(values=c("#ffa600", "#003f5c"))+
   geom_smooth(
@@ -406,127 +588,26 @@ Fig2b4<-ggplot(rateComp, aes(x = sdArou.x, y = sdArou.y, colour = as.factor(volu
 ##########################################################################
 ##########################################################################
 #### Internal consistency for ratings
+##########################################################################
+##########################################################################
 
-idList <- unique(taskData$userID)
-
-allVal <- data.frame()
-allArou <- data.frame()
-
-# for every participant,
-for (i in 1:length(idList)) {
-  indivData <- taskData[taskData$userID == idList[i], ]
-  indivData <- indivData[with(indivData, order(indivData$userID, indivData$volumePer, indivData$qnNum)), ] # make sure it is ordered
-  
-  valScale <- NULL
-  arouScale <- NULL
-  colAll <- NULL
-  
-  # for every sound,
-  for (s in 1:length(unique(taskData$soundFocus))) {
-    
-    # permute ratings such that vector includes first 2 is 0.5 volume ratings, then 1.0 volume ratings for one particular sound
-    sound.title <- unique(taskData$soundFocus)[s]
-    
-    sound.val <- indivRatings(sound.title, "valRating")
-    sound.arou <- indivRatings(sound.title, "arouRating")
-    
-    sound.title.1 <- paste(sound.title, "0.5-1", sep = " ")
-    sound.title.2 <- paste(sound.title, "0.5-2", sep = " ")
-    sound.title.3 <- paste(sound.title, "1.0-1", sep = " ")
-    sound.title.4 <- paste(sound.title, "1.0-2", sep = " ")
-    
-    colID <- c(sound.title.1, sound.title.2, sound.title.3, sound.title.4)
-    
-    valScale <- cbind(valScale, sound.val)
-    arouScale <- cbind(arouScale, sound.arou)
-    colAll <- cbind(colAll, colID)
-  }
-  colAll <- as.vector(colAll, mode = "any")
-  valScale <- data.frame(valScale)
-  arouScale <- data.frame(arouScale)
-  colnames(valScale) <- c(colAll)
-  colnames(arouScale) <- c(colAll)
-  valScale$userID <- idList[i]
-  arouScale$userID <- idList[i]
-  
-  allVal <- rbind(allVal, valScale)
-  allArou <- rbind(allArou, arouScale)
-}
-
-
+#allVal and allArou are from the inter-rater reliability section
 allValCo <- allVal[, c(1:60)]
 allArouCo <- allArou[, c(1:60)]
 
 psych::alpha(allValCo, check.keys = TRUE)$total$std.alpha
 psych::alpha(allArouCo, check.keys = TRUE)$total$std.alpha
 
-library(goeveg)
-cv(audioRateFinal$meanValAll, na.rm = FALSE)
-cv(audioRateFinal$meanArouAll, na.rm = FALSE)
-
-
-##########################################################################
-##########################################################################
-#### Suppl Fig 2. Intra-class (sound) correlation 
-
-# Correlation for each sound separately across participants
-
-allsound.frame <- data.frame()
-for (t in seq(1, length(colAll), by = 4)) {
-  
-  # correlate the 0.5 vol
-  sound <- substr(colAll[t],1,nchar(colAll[t])-6)
-  sound.1.cor<-  cor.test(allValCo[[colAll[t]]], allValCo[[colAll[t + 1]]],method = c("spearman"), exact=FALSE)
-  
-  # correlate the 1.0 vol
-  sound.2.cor<-cor.test(allValCo[[colAll[t + 2]]], allValCo[[colAll[t + 3]]],method = c("spearman"), exact=FALSE)
-  
-  sound.frame<-data.frame(sound,sound.1.cor$estimate,sound.1.cor$statistic,sound.1.cor$p.value,
-                          sound.2.cor$estimate,sound.2.cor$statistic,sound.2.cor$p.value)
-  colnames(sound.frame)<-c("Sound", "0.5_Rel", "0.5_S", "0.5_p", "1.0_Rel", "1.0_S", "1.0_p")
-  
-  allsound.frame<- rbind(allsound.frame,sound.frame)
-}
-
-# plot
-xlabel<- paste('Correlation (',rho,') between repeated\nratings at 50% volume', sep="")
-ylabel<- paste('Correlation (',rho,') between repeated\nratings at 100% volume', sep="")               
-
-SFig2<- ggplot(allsound.frame, aes(x = `0.5_Rel`, y = `1.0_Rel`)) +
-  geom_point(color = "black", size = 3) + 
-  labs(
-    title = "",
-    x= xlabel,
-    y = ylabel
-  ) +
-  theme_classic()+
-  theme(
-    plot.title = element_text(size = 14, face = "bold.italic"),
-    axis.title.x = element_text(size = 14, face = "bold"),
-    axis.text = element_text(size = 14),
-    axis.title.y = element_text(size = 14, face = "bold")
-  ) + 
-  xlim(0.55, 0.8) +   ylim(0.55,0.8)+
-  geom_text_repel(aes(label = Sound), point.padding = 0.3)
-
-
-mean(allsound.frame$`0.5_Rel`)
-sd(allsound.frame$`0.5_Rel`)
-
-mean(allsound.frame$`1.0_Rel`)
-sd(allsound.frame$`1.0_Rel`)
-
-allsound.frame[order(allsound.frame$`0.5_Rel`),]
-allsound.frame[order(allsound.frame$`1.0_Rel`),]
-
-t.test(allsound.frame$`0.5_Rel`,allsound.frame$`1.0_Rel`)
 
 
 ##########################################################################
 ##########################################################################
 #### Fig 3. Correlation with prior studies
+##########################################################################
+##########################################################################
+
 library("readxl")
-IADSE <- data.frame(read_excel("C:/Users/dream/Documents/MEGAsync/Experimental Tasks/IADS-E/Sound Ratings.xlsx")) # load check data
+IADSE <- data.frame(read_excel(prior_study)) # load check data
 
 # female scream (0276), cicada chirps (0335), running water (0921) and a piano melody (1360)
 soundsUsed<- c("0276","0335", "0921","1360" )
@@ -567,7 +648,7 @@ Fig3a<- ggplot(compData, aes(x = IADSE_Arou, y = Cur_Arou)) +
   labs(
     title = " ",
     x= "Arousal Rating\n(Prior studies)",
-    y = "Arousal Rating\n(Seow & Hauser, 2021)"
+    y = "Arousal Rating\n(Current study)"
   ) +
   theme_classic()+
   theme(
@@ -589,7 +670,7 @@ Fig3b<- ggplot(compData, aes(x = IADSE_Val, y = Cur_Val)) +
   labs(
     title = " ",
     x= "Valance Rating\n(Prior studies)",
-    y = "Valance Rating\n(Seow & Hauser, 2021)"
+    y = "Valance Rating\n(Current study)"
   ) +
   theme_classic()+
   theme(
@@ -602,36 +683,39 @@ Fig3b<- ggplot(compData, aes(x = IADSE_Val, y = Cur_Val)) +
   geom_text_repel(aes(label = Sound), point.padding = 0.5)
 
 
-## What about variance
-# audioRateVar <- ddply(audioRateUser, c("soundFocus", "volumePer"), summarise,
-#                       meanValAll = mean(meanVal/10), sdValAll = sd(meanVal/10) ,
-#                       meanArouAll = mean(meanArou/10), sdArouAll = sd(meanArou/10) 
-# )
 
-# soundsUsed<- c("0276","0335", "0921","1360" )
-# IADSEVar <- IADSE[IADSE$Sound.ID %in% soundsUsed, ]
-# IADSEVar<- IADSEVar[,c("Description","AroMN", "AroSD","ValMN","ValSD")]
-# IADSEVar$Sound<-c("Scream\n(IADS-E; Yang et al., 2018)","Cicada\n(IADS-E; Yang et al., 2018)","Sea Wave\n(IADS-E; Yang et al., 2018)","Piano Melody\n(IADS-E; Yang et al., 2018)")
-# IADSEVar$AroCV<-IADSEVar$AroSD/IADSEVar$AroMN*100
-# IADSEVar$ValCV<-IADSEVar$ValSD/IADSEVar$ValMN*100
-# 
-# audioComp<-audioRateVar[audioRateFinal$volumePer==1.0,]
-# audioUsed<- c("Cicada\n(IADS-E; Yang et al., 2018)","Piano Melody\n(IADS-E; Yang et al., 2018)", "Scream\n(IADS-E; Yang et al., 2018)","Sea Wave\n(IADS-E; Yang et al., 2018)","Scream\n(Morriss et al., 2015; 2016; 2020)")
-# audioVar <- audioComp[audioComp$soundFocus %in% audioUsed, ]
-# audioVar<- audioVar[,c("soundFocus","meanValAll","sdValAll","meanArouAll","sdArouAll")]
-# audioVar$AroCV<-audioVar$sdArouAll/audioVar$meanArouAll*100
-# audioVar$ValCV<-audioVar$sdValAll/audioVar$meanValAll*100
-# 
-# compDataVar <- Reduce(
-#   function(dtf1, dtf2) merge(dtf1, dtf2, by = "Sound", all.x = TRUE),
-#   list(IADSEVar, audioVar)
-# )
-# 
+powerComp = compData[compData$Sound!="Scream\n(Morriss et al., 2015; 2016; 2020)",]
+
+cor.test(powerComp$IADSE_Val,powerComp$IADSE_Arou, method="pearson")
+
+ggplot(compData, aes(x = IADSE_Val, y = Cur_Val)) +
+  geom_point(color = "black", size = 3) + 
+  geom_smooth(
+    method = lm, se=FALSE ,linetype = "dashed",
+    color = "grey", size = 1.2, alpha=0.5
+  ) +
+  labs(
+    title = " ",
+    x= "Valance Rating\n(Prior studies)",
+    y = "Valance Rating\n(Current study)"
+  ) +
+  theme_classic()+
+  theme(
+    plot.title = element_text(size = 14, face = "bold.italic"),
+    axis.title.x = element_text(size = 14, face = "bold"),
+    axis.text = element_text(size = 14),
+    axis.title.y = element_text(size = 14, face = "bold")
+  ) + 
+  xlim(0, 10) +   ylim(0,100)+
+  geom_text_repel(aes(label = Sound), point.padding = 0.5)
+
 
 
 ##########################################################################
 ##########################################################################
 #### Fig 4. Ranking affective ratings
+##########################################################################
+##########################################################################
 
 #### average ratings across its repeated presentation ####
 
@@ -734,47 +818,12 @@ colnames(arouVol)<- c("sound" , "t-value", "conf.int1", "conf.int2","p-value" )
 valVol<-data.frame(valVol)
 arouVol<-data.frame(arouVol)
 
-valVol[,2:5] <- lapply(valVol[,2:5], as.numeric)
-arouVol[,2:5] <- lapply(arouVol[,2:5], as.numeric)
-
-valVol <- valVol[order(valVol$t.value),]
-arouVol <- arouVol[order(arouVol$t.value),]
-
-
-test1 = audioRateUser[audioRateUser$soundFocus == "Scream\n(Morriss et al., 2015; 2016; 2020)" & audioRateUser$volumePer == 1.0, ]
-test2 = audioRateUser[audioRateUser$soundFocus == "Scream\n(IADS-E; Yang et al., 2018)" & audioRateUser$volumePer == 1.0, ]
-
-test1 = audioRateUser[audioRateUser$soundFocus == "Scream\n(Morriss et al., 2015; 2016; 2020)" & audioRateUser$volumePer == 0.5, ]
-test2 = audioRateUser[audioRateUser$soundFocus == "Scream\n(IADS-E; Yang et al., 2018)" & audioRateUser$volumePer == 0.5, ]
-
-
-test1 = audioRateUser[audioRateUser$soundFocus == "Cicada\n(IADS-E; Yang et al., 2018)" & audioRateUser$volumePer == 1.0, ]
-test2 = audioRateUser[audioRateUser$soundFocus == "Piano Melody\n(IADS-E; Yang et al., 2018)" & audioRateUser$volumePer == 1.0, ]
-
-test1 = audioRateUser[audioRateUser$soundFocus == "Cicada\n(IADS-E; Yang et al., 2018)" & audioRateUser$volumePer == 0.5, ]
-test2 = audioRateUser[audioRateUser$soundFocus == "Piano Melody\n(IADS-E; Yang et al., 2018)" & audioRateUser$volumePer == 0.5, ]
-
-
-test1 = audioRateUser[audioRateUser$soundFocus == "Frequency 1\n(M = 8,033 Hz)" & audioRateUser$volumePer == 0.5, ]
-test2 = audioRateUser[audioRateUser$soundFocus == "Frequency 2\n(M = 4,004 Hz)" & audioRateUser$volumePer == 0.5, ]
-
-test1 = audioRateUser[audioRateUser$soundFocus == "Frequency 1\n(M = 8,033 Hz)" & audioRateUser$volumePer == 1.0, ]
-test2 = audioRateUser[audioRateUser$soundFocus == "Frequency 2\n(M = 4,004 Hz)" & audioRateUser$volumePer == 1.0, ]
-
-test1 = audioRateUser[audioRateUser$soundFocus == "5,000 Hz" & audioRateUser$volumePer == 0.5, ]
-test2 = audioRateUser[audioRateUser$soundFocus == "800 Hz" & audioRateUser$volumePer == 0.5, ]
-
-t.test(test1$meanVal, test2$meanVal, paired = TRUE )
-
-t.test(test1$meanArou, test2$meanArou, paired = TRUE )
-
-
 
 ##########################################################################
 ##########################################################################
-#### Suppl Fig 3. Valence vs Arousal ratings
+#### Suppl Fig 4. Valence vs Arousal ratings
 
-SFig3a<-ggplot(audioRateUser, aes(colour = as.factor(volumePer*100), y = meanVal , x = meanArou)) +
+FigS4a<-ggplot(audioRateUser, aes(colour = as.factor(volumePer*100), y = meanVal , x = meanArou)) +
   geom_jitter(position = position_jitter(width = 0.15, height = 0), size = 3, shape = 21, stroke = 1.2) +
   scale_color_manual(values = c("#ffa600", "#003f5c")) +
   labs(
@@ -794,7 +843,7 @@ SFig3a<-ggplot(audioRateUser, aes(colour = as.factor(volumePer*100), y = meanVal
   ) + xlim (-0.5,100.5)+ ylim (-0.5,100.5)
 
 # Correlation of valence mean vs arousal mean, by volume
-SFig3b<-ggplot(audioRateFinal, aes(colour = as.factor(volumePer*100), y = meanValAll, x = meanArouAll)) +
+FigS4b<-ggplot(audioRateFinal, aes(colour = as.factor(volumePer*100), y = meanValAll, x = meanArouAll)) +
   geom_jitter(position = position_jitter(width = 0.15, height = 0), size = 3, shape = 21, stroke = 1.2) +
   scale_color_manual(values = c("#ffa600", "#003f5c")) +
   geom_smooth(
@@ -818,7 +867,7 @@ SFig3b<-ggplot(audioRateFinal, aes(colour = as.factor(volumePer*100), y = meanVa
   ) + xlim (0,100)+ ylim (0,100)
 
 # Correlation of valence SD vs arousal SD, by volume
-SFig3c<-ggplot(audioRateFinal, aes(colour = as.factor(volumePer*100), y = sdValAll, x = sdArouAll)) +
+FigS4c<-ggplot(audioRateFinal, aes(colour = as.factor(volumePer*100), y = sdValAll, x = sdArouAll)) +
   geom_jitter(position = position_jitter(width = 0.15, height = 0), size = 3, shape = 21, stroke = 1.2) +
   scale_color_manual(values = c("#ffa600", "#003f5c")) +
   labs(
@@ -857,10 +906,10 @@ regData <- Reduce(
   list(audioRateUser, questData)
 )
 
-#### Suppl Fig 4. Questionnare score histograms 
+#### Suppl Fig 5. Questionnare score histograms 
 
 
-SFig4a<-ggplot(questData, aes(x=STAIY1_total)) + 
+FigS5a<-ggplot(questData, aes(x=STAIY1_total)) + 
   geom_histogram(color="black", fill="white", binwidth = 4) +
   geom_vline(aes(xintercept=mean(STAIY1_total)),
              color="black", linetype="dashed", size=1) +
@@ -878,7 +927,7 @@ SFig4a<-ggplot(questData, aes(x=STAIY1_total)) +
   )
 
 
-SFig4b<-ggplot(questData, aes(x=STAIY2_total)) + 
+FigS5b<-ggplot(questData, aes(x=STAIY2_total)) + 
   geom_histogram(color="black", fill="white", binwidth = 4) +
   geom_vline(aes(xintercept=mean(STAIY2_total)),
              color="black", linetype="dashed", size=1) +
@@ -896,7 +945,7 @@ SFig4b<-ggplot(questData, aes(x=STAIY2_total)) +
   )
 
 
-SFig4c<-ggplot(questData, aes(x=OCIR_total)) + 
+FigS5c<-ggplot(questData, aes(x=OCIR_total)) + 
   geom_histogram(color="black", fill="white", binwidth = 4) +
   geom_vline(aes(xintercept=mean(OCIR_total)),
              color="black", linetype="dashed", size=1) +
@@ -914,14 +963,14 @@ SFig4c<-ggplot(questData, aes(x=OCIR_total)) +
   )
 
 
-#### Suppl Fig 5. Correlations BETWEEN questionnaire scores 
+#### Suppl Fig 6. Correlations BETWEEN questionnaire scores 
 
 cor.test(questData$STAIY1_total, questData$STAIY2_total)
 cor.test(questData$OCIR_total, questData$STAIY1_total)
 cor.test(questData$OCIR_total, questData$STAIY2_total)
 
 
-SFig5a <- ggplot(questData, aes(y = STAIY1_total, x = STAIY2_total)) +
+FigS6a <- ggplot(questData, aes(y = STAIY1_total, x = STAIY2_total)) +
   geom_point(shape = 21, colour = "black", size = 3, stroke = 1.2) +
   geom_smooth(
     method = lm, linetype = "dashed",
@@ -942,7 +991,7 @@ SFig5a <- ggplot(questData, aes(y = STAIY1_total, x = STAIY2_total)) +
 
 
 
-SFig5b  <- ggplot(questData, aes(x = STAIY1_total, y = OCIR_total)) +
+FigS6b  <- ggplot(questData, aes(x = STAIY1_total, y = OCIR_total)) +
   geom_point(shape = 21, colour = "black", size = 3, stroke = 1.2) +
   geom_smooth(
     method = lm, linetype = "dashed",
@@ -961,7 +1010,7 @@ SFig5b  <- ggplot(questData, aes(x = STAIY1_total, y = OCIR_total)) +
     axis.title.y = element_text(size = 14, face = "bold")
   )+ xlim (20,80)+ ylim (0,72)
 
-SFig5c  <- ggplot(questData, aes(x = STAIY2_total, y = OCIR_total)) +
+FigS6c  <- ggplot(questData, aes(x = STAIY2_total, y = OCIR_total)) +
   geom_point(shape = 21, colour = "black", size = 3, stroke = 1.2) +
   geom_smooth(
     method = lm, linetype = "dashed",
@@ -1003,7 +1052,7 @@ summary(arouReg)
 
 ##########################################################################
 ##########################################################################
-#### Fig 5a. Psychiatric questionnaires x valence/arousal ratings
+#### Fig 5. Psychiatric questionnaires x valence/arousal ratings
 
 audioRateMean <- ddply(audioRateUser, c("userID", "volumePer"), summarise,
                        
@@ -1042,7 +1091,7 @@ Fig5a1<-ggplot(regData2, aes(x = meanArouAll, y = STAIY1_total, colour = as.fact
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  )+ xlim(35,95)+ ylim (22,75)
+  )
 
 Fig5a2<-ggplot(regData2, aes(x = meanArouAll, y = STAIY2_total, colour = as.factor(volumePer*100))) +
   geom_point(shape = 21, size = 3, stroke = 1.2, alpha =0.8) +
@@ -1066,7 +1115,7 @@ Fig5a2<-ggplot(regData2, aes(x = meanArouAll, y = STAIY2_total, colour = as.fact
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  ) + xlim(35,95)+ ylim (25,85)
+  )
 
 
 Fig5a3<-ggplot(regData2, aes(x = meanArouAll, y = OCIR_total, colour = as.factor(volumePer*100))) +
@@ -1091,7 +1140,7 @@ Fig5a3<-ggplot(regData2, aes(x = meanArouAll, y = OCIR_total, colour = as.factor
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  ) + xlim(32,95)+ ylim (0,55)
+  )
 #+ xlim (1,100)+ ylim (0,72)
 
 
@@ -1117,7 +1166,7 @@ Fig5a4<-ggplot(regData2, aes(x = meanValAll, y = STAIY1_total, colour = as.facto
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  ) + xlim(12,62)+ ylim (22,75)
+  )
 
 
 
@@ -1143,7 +1192,7 @@ Fig5a5<-ggplot(regData2, aes(x = meanValAll, y = STAIY2_total, colour = as.facto
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  )  + xlim(12,62)+ ylim (25,85)
+  )
 
 
 Fig5a6<-ggplot(regData2, aes(x = meanValAll, y = OCIR_total, colour = as.factor(volumePer*100))) +
@@ -1168,8 +1217,7 @@ Fig5a6<-ggplot(regData2, aes(x = meanValAll, y = OCIR_total, colour = as.factor(
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  )+ xlim(12,62)+ ylim (0,55)
-
+  )
 #+ xlim (1,100)+ ylim (0,72)
 
 ##########################################################################
@@ -1250,7 +1298,7 @@ Fig5b1<-ggplot(regDataRelVal, aes(x = Cor, y = STAIY1_total, colour = as.factor(
     legend.title=element_text(size=12),
     legend.text=element_text(size=12),
     legend.position = "none"
-  )+ ylim (20,80)+ xlim(0.3,1.05)
+  )+ ylim (20,80)
 
 
 Fig5b2<-ggplot(regDataRelVal, aes(x = Cor, y = STAIY2_total, colour = as.factor(Volume*100))) +
@@ -1397,7 +1445,7 @@ Fig5b6<-ggplot(regDataRelArou, aes(x = Cor, y = OCIR_total, colour = as.factor(V
 
 ##########################################################################
 ##########################################################################
-#### Supplementary Fig 6. Individual sound correlation with questionnaire scores
+#### Supplementary Fig 7. Individual sound correlation with questionnaire scores
 
 # do a for loop here
 val.0.5.frame <- data.frame()
@@ -1458,7 +1506,7 @@ val.0.5.frame.temp<- val.0.5.frame[,c("sound","STAIY1_cor","STAIY2_cor","OCIR_co
 colnames(val.0.5.frame.temp)<-c("sound","STAIY1","STAIY2","OCIR")
 val.0.5.frame.temp<-melt(val.0.5.frame.temp)
 
-SFig6a <- ggplot(val.0.5.frame.temp, aes(colour = as.factor(variable), y = sound, x = value)) +
+FigS7a <- ggplot(val.0.5.frame.temp, aes(colour = as.factor(variable), y = sound, x = value)) +
   geom_point( size = 3,position = position_dodge(width=0.55)) +
   # change color of bars
   scale_color_manual(values=c("#EE7733", "#BBBBBB","#009988"))+
@@ -1484,7 +1532,7 @@ arou.0.5.frame.temp<- arou.0.5.frame[,c("sound","STAIY1_cor","STAIY2_cor","OCIR_
 colnames(arou.0.5.frame.temp)<-c("sound","STAIY1","STAIY2","OCIR")
 arou.0.5.frame.temp<-melt(arou.0.5.frame.temp)
 
-SFig6b <- ggplot(arou.0.5.frame.temp, aes(colour = as.factor(variable), y = sound, x = value)) +
+FigS7b <- ggplot(arou.0.5.frame.temp, aes(colour = as.factor(variable), y = sound, x = value)) +
   geom_point( size = 3,position = position_dodge(width=0.55)) +
   # change color of bars
   scale_color_manual(values=c("#EE7733", "#BBBBBB","#009988"))+
@@ -1510,7 +1558,7 @@ val.1.0.frame.temp<- val.1.0.frame[,c("sound","STAIY1_cor","STAIY2_cor","OCIR_co
 colnames(val.1.0.frame.temp)<-c("sound","STAIY1","STAIY2","OCIR")
 val.1.0.frame.temp<-melt(val.1.0.frame.temp)
 
-SFig6c <- ggplot(val.1.0.frame.temp, aes(colour = as.factor(variable), y = sound, x = value)) +
+FigS7c <- ggplot(val.1.0.frame.temp, aes(colour = as.factor(variable), y = sound, x = value)) +
   geom_point( size = 3,position = position_dodge(width=0.55)) +
   # change color of bars
   scale_color_manual(values=c("#EE7733", "#BBBBBB","#009988"))+
@@ -1537,7 +1585,7 @@ arou.1.0.frame.temp<- arou.1.0.frame[,c("sound","STAIY1_cor","STAIY2_cor","OCIR_
 colnames(arou.1.0.frame.temp)<-c("sound","STAIY1","STAIY2","OCIR")
 arou.1.0.frame.temp<-melt(arou.1.0.frame.temp)
 
-SFig6d <- ggplot(arou.1.0.frame.temp, aes(colour = as.factor(variable), y = sound, x = value)) +
+FigS7d <- ggplot(arou.1.0.frame.temp, aes(colour = as.factor(variable), y = sound, x = value)) +
   geom_point( size = 3,position = position_dodge(width=0.55)) +
   # change color of bars
   scale_color_manual(values=c("#EE7733", "#BBBBBB","#009988"))+
@@ -1568,8 +1616,19 @@ arou.1.0.frame[arou.1.0.frame$STAIY1_p <0.05 | arou.1.0.frame$STAIY2_p <0.05 |ar
 
 ##########################################################################
 ##########################################################################
-#### Save figures
+#### Post-hoc power
+##########################################################################
+##########################################################################
 
+library(ICC.Sample.Size)
+calculateIccPower(p=0.73,p0=0.55,k=2,alpha=0.05,tails=2,N=84)
+calculateIccSampleSize(p=0.70,p0=0.5,k=2,alpha=0.05,tails=2)
+
+##########################################################################
+##########################################################################
+#### Save figures
+##########################################################################
+##########################################################################
 
 if (print == 1) {
   setwd(printFolder)
@@ -1578,14 +1637,12 @@ if (print == 1) {
   ggsave("Fig1a.png", plot = Fig1a, width = 5 ,height = 10, units = "cm", dpi =300)
   ggsave("Fig1b.png", plot = Fig1b,width = 13 ,height = 11, units = "cm", dpi =300)
   
-  # Figure 2a - intra-participant test-rest reliability 
+  # Figure 2a - intra-rater item test-rest reliability 
   ggsave("Fig2a.png", plot = Fig2a,width = 10 ,height = 10, units = "cm", dpi =300)
   
-  # Figure 2b - inter-participant  test-rest reliability 
+  # Figure 2b - Scale test-rest reliability 
   ggsave("Fig2b1.png", plot = Fig2b1,width = 10 ,height = 10, units = "cm", dpi =300)
   ggsave("Fig2b2.png", plot = Fig2b2,width = 10 ,height = 10, units = "cm", dpi =300)
-  ggsave("Fig2b3.png", plot = Fig2b3,width = 10 ,height = 10, units = "cm", dpi =300)
-  ggsave("Fig2b4.png", plot = Fig2b4,width = 10 ,height = 10, units = "cm", dpi =300)
   
   # Figure 3 - correlation with prior ratings
   ggsave("Fig3a.png", plot = Fig3a,width = 15 ,height = 15, units = "cm", dpi =300)
@@ -1613,31 +1670,38 @@ if (print == 1) {
   
   
   # Supplemetary Figure 1 - frequency x age
-  ggsave("SFig1.png", plot = SFig1,width = 10 ,height = 10, units = "cm", dpi =300)
+  ggsave("FigS1.png", plot = FigS1,width = 10 ,height = 10, units = "cm", dpi =300)
   
-  # Supplemetary Figure 2 - intra-sound test-rest reliability 
-  ggsave("SFig2.png", plot = SFig2,width = 20 ,height = 20, units = "cm", dpi =300)
+  # Supplemetary Figure 2 - sound test-retest reliability 
+  ggsave("FigS2a.png", plot = FigS2a,width = 20 ,height = 20, units = "cm", dpi =300)
+  ggsave("FigS2b.png", plot = FigS2b,width = 20 ,height = 20, units = "cm", dpi =300)
   
-  # Supplemetary Figure 3 - Correlation of valence mean vs arousal mean, by volume
-  ggsave("SFig3a.png", plot = SFig3a,width = 11 ,height = 9, units = "cm", dpi =300)
-  ggsave("SFig3b.png", plot = SFig3b,width = 11 ,height = 9, units = "cm", dpi =300)
-  ggsave("SFig3c.png", plot = SFig3c,width = 11 ,height = 9, units = "cm", dpi =300)
   
-  # Supplemetary Figure 4 - questionnaires histograms 
-  ggsave("SFig4a.png", plot = SFig4a,width = 10 ,height = 10, units = "cm", dpi =300)
-  ggsave("SFig4b.png", plot = SFig4b, width = 10 ,height = 10, units = "cm", dpi =300)
-  ggsave("SFig4c.png", plot = SFig4c,width = 10 ,height = 10, units = "cm", dpi =300)
+  # Supplemetary Figure 3 - scale test-retest rel, correlation of SD 
+  ggsave("FigS3a.png", plot = FigS3a,width = 10 ,height = 10, units = "cm", dpi =300)
+  ggsave("FigS3b.png", plot = FigS3b,width = 10 ,height = 10, units = "cm", dpi =300)
   
-  # Supplemetary Figure 5 - questionnaires correlations 
-  ggsave("SFig5a.png", plot = SFig5a,width = 10 ,height = 10, units = "cm", dpi =300)
-  ggsave("SFig5b.png", plot = SFig5b,width = 10 ,height = 10, units = "cm", dpi =300)
-  ggsave("SFig5c.png", plot = SFig5c,width = 10 ,height = 10, units = "cm", dpi =300)
   
-  # Supplemetary Figure 6 - questionnaires correlations per specific sound
-  ggsave("SFig6a.png", plot = SFig6a,width = 25 ,height = 20, units = "cm", dpi =300)
-  ggsave("SFig6b.png", plot = SFig6b,width = 25 ,height = 20, units = "cm", dpi =300)
-  ggsave("SFig6c.png", plot = SFig6c,width = 25 ,height = 20, units = "cm", dpi =300)
-  ggsave("SFig6d.png", plot = SFig6d,width = 25 ,height = 20, units = "cm", dpi =300)
+  # Supplemetary Figure 4 - Correlation of valence mean vs arousal mean, by volume
+  ggsave("FigS4a.png", plot = FigS4a,width = 11 ,height = 9, units = "cm", dpi =300)
+  ggsave("FigS4b.png", plot = FigS4b,width = 11 ,height = 9, units = "cm", dpi =300)
+  ggsave("FigS4c.png", plot = FigS4c,width = 11 ,height = 9, units = "cm", dpi =300)
+  
+  # Supplemetary Figure 5 - questionnaires histograms 
+  ggsave("FigS5a.png", plot = FigS5a,width = 10 ,height = 10, units = "cm", dpi =300)
+  ggsave("FigS5b.png", plot = FigS5b, width = 10 ,height = 10, units = "cm", dpi =300)
+  ggsave("FigS5c.png", plot = FigS5c,width = 10 ,height = 10, units = "cm", dpi =300)
+  
+  # Supplemetary Figure 6 - questionnaires correlations 
+  ggsave("FigS6a.png", plot = FigS6a,width = 10 ,height = 10, units = "cm", dpi =300)
+  ggsave("FigS6b.png", plot =FigS6b,width = 10 ,height = 10, units = "cm", dpi =300)
+  ggsave("FigS6c.png", plot = FigS6c,width = 10 ,height = 10, units = "cm", dpi =300)
+  
+  # Supplemetary Figure 7 - questionnaires correlations per specific sound
+  ggsave("FigS7a.png", plot = FigS7a,width = 25 ,height = 20, units = "cm", dpi =300)
+  ggsave("FigS7b.png", plot = FigS7b,width = 25 ,height = 20, units = "cm", dpi =300)
+  ggsave("FigS7c.png", plot = FigS7c,width = 25 ,height = 20, units = "cm", dpi =300)
+  ggsave("FigS7d.png", plot = FigS7d,width = 25 ,height = 20, units = "cm", dpi =300)
   
   
 }
